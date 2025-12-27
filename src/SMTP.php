@@ -49,7 +49,7 @@ class SMTP
                  $details['error'] = $emailResult['error'];
             }
 
-        } catch (	hrowable $e) {
+        } catch (\Throwable $e) {
             $details['error'] = $e->getMessage();
         } finally {
             $this->disconnect($socket);
