@@ -2,18 +2,13 @@
 
 namespace Shyim\CheckIfEmailExists;
 
-class EmailChecker
+readonly class EmailChecker
 {
-    private DNS $dns;
-    private SMTP $smtp;
-    private Misc $misc;
-
-    public function __construct(?DNS $dns = null, ?SMTP $smtp = null, ?Misc $misc = null)
-    {
-        $this->dns = $dns ?? new DNS();
-        $this->smtp = $smtp ?? new SMTP();
-        $this->misc = $misc ?? new Misc();
-    }
+    public function __construct(
+        private DNS $dns = new DNS(),
+        private SMTP $smtp = new SMTP(),
+        private Misc $misc = new Misc()
+    ) {}
 
     public function check(string $email): Result
     {
@@ -26,6 +21,7 @@ class EmailChecker
                 isReachable: false,
                 isCatchAll: false,
                 isDisposable: false,
+                isB2C: false,
                 isRoleAccount: false,
                 isDisabled: false,
                 hasFullInbox: false,
@@ -35,6 +31,7 @@ class EmailChecker
 
         $miscIsRole = $this->misc->isRoleAccount($syntax->username);
         $miscIsDisposable = $this->misc->isDisposable($email);
+        $miscIsB2C = $this->misc->isB2C($syntax->domain);
 
         $mxRecords = $this->dns->getMxRecords($syntax->domain);
         if (empty($mxRecords)) {
@@ -45,6 +42,7 @@ class EmailChecker
                 isReachable: false,
                 isCatchAll: false,
                 isDisposable: $miscIsDisposable,
+                isB2C: $miscIsB2C,
                 isRoleAccount: $miscIsRole,
                 isDisabled: false,
                 hasFullInbox: false,
@@ -65,6 +63,7 @@ class EmailChecker
             isReachable: $isReachable,
             isCatchAll: $smtpDetails['is_catch_all'],
             isDisposable: $miscIsDisposable,
+            isB2C: $miscIsB2C,
             isRoleAccount: $miscIsRole,
             isDisabled: $smtpDetails['is_disabled'],
             hasFullInbox: $smtpDetails['has_full_inbox'],

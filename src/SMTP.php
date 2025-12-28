@@ -2,11 +2,24 @@
 
 namespace Shyim\CheckIfEmailExists;
 
+
 class SMTP
 {
     private const TIMEOUT = 10;
-    private const FROM_EMAIL = 'verify@example.com';
-    private const HELO_HOST = 'example.com';
+
+    private readonly string $heloHost;
+
+    public function __construct(
+        private readonly string $fromEmail = "verify@example.com",
+    )
+    {
+        $syntax = new Syntax($fromEmail);
+        if ($syntax->isValid() === false) {
+            throw new \InvalidArgumentException(\sprintf('Syntax of email address \'%s\' is not valid.', $fromEmail));
+        }
+
+        $this->heloHost = $syntax->domain;
+    }
 
     public function check(string $domain, string $mxHost, string $toEmail): array
     {
@@ -38,7 +51,7 @@ class SMTP
                  $this->sendCommand($socket, 'RSET');
                  $this->readResponse($socket);
 
-                 $this->sendCommand($socket, 'MAIL FROM: <' . self::FROM_EMAIL . '>');
+                 $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail . '>');
                  $this->readResponse($socket);
 
                  $emailResult = $this->verifyEmail($socket, $toEmail, false);
@@ -49,7 +62,7 @@ class SMTP
                  $details['error'] = $emailResult['error'];
             }
 
-        } catch (	hrowable $e) {
+        } catch (\Throwable $e) {
             $details['error'] = $e->getMessage();
         } finally {
             $this->disconnect($socket);
@@ -67,10 +80,10 @@ class SMTP
         stream_set_timeout($socket, self::TIMEOUT);
         $this->readResponse($socket);
 
-        $this->sendCommand($socket, 'EHLO ' . self::HELO_HOST);
+        $this->sendCommand($socket, 'EHLO ' . $this->heloHost);
         $this->readResponse($socket);
         
-        $this->sendCommand($socket, 'MAIL FROM: <' . self::FROM_EMAIL . '>');
+        $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail . '>');
         $this->readResponse($socket);
 
         return $socket;
@@ -86,7 +99,7 @@ class SMTP
         ];
 
         if ($sendMailFrom) {
-             $this->sendCommand($socket, 'MAIL FROM: <' . self::FROM_EMAIL . '>');
+             $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail  . '>');
              $this->readResponse($socket);
         }
 
@@ -126,7 +139,7 @@ class SMTP
         $response = '';
         while ($line = fgets($socket)) {
             $response .= $line;
-            if (substr($line, 3, 1) === ' ') {
+            if ($line[3] === ' ') {
                 break;
             }
         }
