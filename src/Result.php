@@ -2,19 +2,19 @@
 
 namespace Shyim\CheckIfEmailExists;
 
-readonly class Result
+class Result
 {
     public function __construct(
         public string $input,
-        public bool $isSyntaxValid,
-        public bool $hasMxRecords,
-        public bool $isReachable,
-        public bool $isCatchAll,
-        public bool $isDisposable,
-        public bool $isB2C,
-        public bool $isRoleAccount,
-        public bool $isDisabled,
-        public bool $hasFullInbox,
+        public bool $isSyntaxValid = false,
+        public bool $hasMxRecords = false,
+        public bool $isReachable = false,
+        public bool $isCatchAll = false,
+        public bool $isDisposable = false,
+        public bool $isB2C = false,
+        public bool $isRoleAccount = false,
+        public bool $isDisabled = false,
+        public bool $hasFullInbox = false,
         public string $mxHost = '',
         public string $error = ''
     ) {}
