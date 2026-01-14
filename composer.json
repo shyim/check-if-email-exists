@@ -14,7 +14,8 @@
     "require": {
         "php": ">=8.2",
         "ext-openssl": "*",
-        "fgribreau/mailchecker": "^6.0"
+        "fgribreau/mailchecker": "^6.0",
+        "ext-intl": "*"
     },
     "scripts": {
         "test": "phpunit"
