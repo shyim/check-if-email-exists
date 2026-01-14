@@ -15,6 +15,14 @@ class SyntaxTest extends TestCase
         $this->assertEquals('example.com', $syntax->domain);
     }
 
+    public function testIdnDomain()
+    {
+        $syntax = new Syntax('test@täst.de');
+        $this->assertTrue($syntax->isValid());
+        $this->assertEquals('test', $syntax->username);
+        $this->assertEquals('xn--tst-qla.de', $syntax->domain);
+    }
+
     public function testInvalidEmail()
     {
         $syntax = new Syntax('invalid-email');

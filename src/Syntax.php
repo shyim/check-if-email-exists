@@ -10,10 +10,19 @@ class Syntax
 
     public function __construct(string $address)
     {
-        $this->address = $address;
         $parts = explode('@', $address);
         $this->username = $parts[0] ?? '';
         $this->domain = $parts[1] ?? '';
+
+        if ($this->domain !== '') {
+            $encodedDomain = idn_to_ascii($this->domain);
+
+            if ($encodedDomain !== false && $encodedDomain !== $this->domain) {
+                $this->domain = $encodedDomain;
+            }
+        }
+
+        $this->address = $this->username . '@' . $this->domain;
     }
 
     public function isValid(): bool
