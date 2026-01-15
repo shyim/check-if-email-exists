@@ -33,7 +33,7 @@ class SMTP
         $smtpResult->canConnect = true;
 
         try {
-            $randomEmail = bin2hex(random_bytes(8)) . '@' . $domain;
+            $randomEmail = hash('xxh3', $toEmail) . '-' . bin2hex(random_bytes(8)) . '@' . $domain;
             $this->verifyEmail($smtpResult, $socket, $randomEmail, false);
 
             if ($smtpResult->isDeliverable) {
