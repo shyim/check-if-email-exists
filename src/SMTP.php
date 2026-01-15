@@ -81,6 +81,8 @@ class SMTP
             $this->readResponse($socket);
         }
 
+        $smtpResult->error = '';
+
         $this->sendCommand($socket, 'RCPT TO: <' . $email . '>');
         $response = $this->readResponse($socket);
         
