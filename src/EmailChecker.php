@@ -39,11 +39,11 @@ readonly class EmailChecker
         $result->isRoleAccount = $this->misc->isRoleAccount($syntax->username);
         $result->isDisposable = $this->misc->isDisposable($email);
         $result->isB2C = $this->misc->isB2C($syntax->domain);
-        $result->isReachable = $smtpDetails['can_connect'] && $smtpDetails['is_deliverable'];
-        $result->isCatchAll = $smtpDetails['is_catch_all'];
-        $result->isDisabled = $smtpDetails['is_disabled'];
-        $result->hasFullInbox = $smtpDetails['has_full_inbox'];
-        $result->error = $smtpDetails['error'];
+        $result->isReachable = $smtpDetails->canConnect && $smtpDetails->isDeliverable;
+        $result->isCatchAll = $smtpDetails->isCatchAll;
+        $result->isDisabled = $smtpDetails->isDisabled;
+        $result->hasFullInbox = $smtpDetails->hasFullInbox;
+        $result->error = $smtpDetails->error;
 
         return $result;
     }

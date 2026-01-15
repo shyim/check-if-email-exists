@@ -21,62 +21,47 @@ class SMTP
         $this->heloHost = $syntax->domain;
     }
 
-    public function check(string $domain, string $mxHost, string $toEmail): array
+    public function check(string $domain, string $mxHost, string $toEmail): SMTPResult
     {
-        $details = [
-            'can_connect' => false,
-            'is_deliverable' => false,
-            'is_catch_all' => false,
-            'has_full_inbox' => false,
-            'is_disabled' => false,
-            'error' => '',
-        ];
+        $smtpResult = new SMTPResult();
 
-        $socket = $this->connect($mxHost);
-        if (!$socket) {
-            $details['error'] = "Could not connect to $mxHost";
-            return $details;
+        $socket = $this->connect($mxHost, $smtpResult);
+        if ($socket === null) {
+            return $smtpResult;
         }
 
-        $details['can_connect'] = true;
+        $smtpResult->canConnect = true;
 
         try {
             $randomEmail = bin2hex(random_bytes(8)) . '@' . $domain;
-            $catchAllResult = $this->verifyEmail($socket, $randomEmail);
+            $this->verifyEmail($smtpResult, $socket, $randomEmail, false);
 
-            if ($catchAllResult['is_deliverable']) {
-                $details['is_catch_all'] = true;
-                $details['is_deliverable'] = true;
+            if ($smtpResult->isDeliverable) {
+                $smtpResult->isCatchAll = true;
             } else {
                  $this->sendCommand($socket, 'RSET');
                  $this->readResponse($socket);
 
-                 $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail . '>');
-                 $this->readResponse($socket);
-
-                 $emailResult = $this->verifyEmail($socket, $toEmail, false);
-
-                 $details['is_deliverable'] = $emailResult['is_deliverable'];
-                 $details['has_full_inbox'] = $emailResult['has_full_inbox'];
-                 $details['is_disabled'] = $emailResult['is_disabled'];
-                 $details['error'] = $emailResult['error'];
+                 $this->verifyEmail($smtpResult, $socket, $toEmail);
             }
-
         } catch (\Throwable $e) {
-            $details['error'] = $e->getMessage();
+            $smtpResult->error .= ' Exception: ' . $e->getMessage();
         } finally {
             $this->disconnect($socket);
         }
 
-        return $details;
+        return $smtpResult;
     }
 
-    private function connect(string $host)
+    private function connect(string $host, SMTPResult $smtpResult)
     {
-        $socket = @fsockopen($host, 25, $errno, $errstr, self::TIMEOUT);
+        $socket = @fsockopen($host, 25, $errNo, $errStr, self::TIMEOUT);
         if (!$socket) {
+            $smtpResult->error = "Could not connect to $host: $errStr ($errNo)";
+
             return null;
         }
+
         stream_set_timeout($socket, self::TIMEOUT);
         $this->readResponse($socket);
 
@@ -89,18 +74,11 @@ class SMTP
         return $socket;
     }
 
-    private function verifyEmail($socket, string $email, bool $sendMailFrom = false): array
+    private function verifyEmail(SMTPResult $smtpResult, $socket, string $email, bool $setMailFrom = true): void
     {
-        $result = [
-            'is_deliverable' => false,
-            'has_full_inbox' => false,
-            'is_disabled' => false,
-            'error' => '',
-        ];
-
-        if ($sendMailFrom) {
-             $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail  . '>');
-             $this->readResponse($socket);
+        if ($setMailFrom) {
+            $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail  . '>');
+            $this->readResponse($socket);
         }
 
         $this->sendCommand($socket, 'RCPT TO: <' . $email . '>');
@@ -108,17 +86,17 @@ class SMTP
         
         $code = (int)substr($response, 0, 3);
         if ($code >= 200 && $code < 300) {
-            $result['is_deliverable'] = true;
+            $smtpResult->isDeliverable = true;
         } else {
              if (stripos($response, 'full') !== false || stripos($response, 'quota') !== false) {
-                 $result['has_full_inbox'] = true;
+                 $smtpResult->hasFullInbox = true;
              }
              if (stripos($response, 'disabled') !== false || stripos($response, 'inactive') !== false) {
-                 $result['is_disabled'] = true;
+                 $smtpResult->isDisabled = true;
              }
-             $result['error'] = $response;
+
+             $smtpResult->error = $response;
         }
-        return $result;
     }
 
     private function disconnect($socket): void
