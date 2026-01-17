@@ -13,4 +13,9 @@ class SMTPResult
         public string $mxHost = '',
         public string $error = ''
     ) {}
+
+    public function addError(string $error): void
+    {
+        $this->error = \implode('; ', array_filter([$this->error, $error]));
+    }
 }

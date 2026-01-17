@@ -21,11 +21,11 @@ class SMTP
         $this->heloHost = $syntax->domain;
     }
 
-    public function check(string $domain, string $mxHost, string $toEmail): SMTPResult
+    public function check(string $domain, array $mxHosts, string $toEmail): SMTPResult
     {
         $smtpResult = new SMTPResult();
 
-        $socket = $this->connect($mxHost, $smtpResult);
+        $socket = $this->connect($mxHosts, $smtpResult);
         if ($socket === null) {
             return $smtpResult;
         }
@@ -39,13 +39,13 @@ class SMTP
             if ($smtpResult->isDeliverable) {
                 $smtpResult->isCatchAll = true;
             } else {
-                 $this->sendCommand($socket, 'RSET');
-                 $this->readResponse($socket);
+                $this->sendCommand($socket, 'RSET');
+                $this->readResponse($socket);
 
-                 $this->verifyEmail($smtpResult, $socket, $toEmail);
+                $this->verifyEmail($smtpResult, $socket, $toEmail);
             }
         } catch (\Throwable $e) {
-            $smtpResult->error .= ' Exception: ' . $e->getMessage();
+            $smtpResult->addError('Exception: ' . $e->getMessage());
         } finally {
             $this->disconnect($socket);
         }
@@ -53,12 +53,23 @@ class SMTP
         return $smtpResult;
     }
 
-    private function connect(string $host, SMTPResult $smtpResult)
+    private function connect(array $hosts, SMTPResult $smtpResult)
     {
-        $socket = @fsockopen($host, 25, $errNo, $errStr, self::TIMEOUT);
-        if (!$socket) {
-            $smtpResult->error = "Could not connect to $host: $errStr ($errNo)";
+        $socket = null;
 
+        foreach ($hosts as $host) {
+            $socket = @fsockopen($host, 25, $errNo, $errStr, self::TIMEOUT);
+            if (\is_resource($socket)) {
+                $smtpResult->error = '';
+                $smtpResult->mxHost = $host;
+
+                break;
+            }
+
+            $smtpResult->addError("Could not connect to $host: $errStr ($errNo)");
+        }
+
+        if (!\is_resource($socket)) {
             return null;
         }
 
@@ -67,7 +78,7 @@ class SMTP
 
         $this->sendCommand($socket, 'EHLO ' . $this->heloHost);
         $this->readResponse($socket);
-        
+
         $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail . '>');
         $this->readResponse($socket);
 
@@ -77,7 +88,7 @@ class SMTP
     private function verifyEmail(SMTPResult $smtpResult, $socket, string $email, bool $setMailFrom = true): void
     {
         if ($setMailFrom) {
-            $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail  . '>');
+            $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail . '>');
             $this->readResponse($socket);
         }
 
@@ -85,25 +96,28 @@ class SMTP
 
         $this->sendCommand($socket, 'RCPT TO: <' . $email . '>');
         $response = $this->readResponse($socket);
-        
+
         $code = (int)substr($response, 0, 3);
         if ($code >= 200 && $code < 300) {
             $smtpResult->isDeliverable = true;
-        } else {
-             if (stripos($response, 'full') !== false || stripos($response, 'quota') !== false) {
-                 $smtpResult->hasFullInbox = true;
-             }
-             if (stripos($response, 'disabled') !== false || stripos($response, 'inactive') !== false) {
-                 $smtpResult->isDisabled = true;
-             }
 
-             $smtpResult->error = $response;
+            return;
         }
+
+        if (stripos($response, 'full') !== false || stripos($response, 'quota') !== false) {
+            $smtpResult->hasFullInbox = true;
+        }
+
+        if (stripos($response, 'disabled') !== false || stripos($response, 'inactive') !== false) {
+            $smtpResult->isDisabled = true;
+        }
+
+        $smtpResult->error = $response;
     }
 
     private function disconnect($socket): void
     {
-        if ($socket) {
+        if (\is_resource($socket)) {
             $this->sendCommand($socket, 'QUIT');
             fclose($socket);
         }

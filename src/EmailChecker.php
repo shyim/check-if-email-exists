@@ -32,10 +32,9 @@ readonly class EmailChecker
             return $result;
         }
 
-        $mxHost = $mxRecords[0];
-        $smtpDetails = $this->smtp->check($syntax->domain, $mxHost, $email);
+        $smtpDetails = $this->smtp->check($syntax->domain, $mxRecords, $email);
 
-        $result->mxHost = $mxHost;
+        $result->mxHost = $smtpDetails->mxHost;
         $result->isRoleAccount = $this->misc->isRoleAccount($syntax->username);
         $result->isDisposable = $this->misc->isDisposable($email);
         $result->isB2C = $this->misc->isB2C($syntax->domain);
