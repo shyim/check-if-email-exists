@@ -7,6 +7,7 @@ use Shyim\CheckIfEmailExists\DNS;
 use Shyim\CheckIfEmailExists\Misc;
 use Shyim\CheckIfEmailExists\SMTP;
 use PHPUnit\Framework\TestCase;
+use Shyim\CheckIfEmailExists\SMTPResult;
 
 class EmailCheckerTest extends TestCase
 {
@@ -37,14 +38,7 @@ class EmailCheckerTest extends TestCase
         $dns->method('getMxRecords')->willReturn(['mx.example.com']);
 
         $smtp = $this->createStub(SMTP::class);
-        $smtp->method('check')->willReturn([
-            'can_connect' => false,
-            'is_deliverable' => false,
-            'is_catch_all' => false,
-            'has_full_inbox' => false,
-            'is_disabled' => false,
-            'error' => 'Connection refused',
-        ]);
+        $smtp->method('check')->willReturn(new SMTPResult(error: 'Connection refused'));
 
         $checker = new EmailChecker($dns, $smtp);
         $result = $checker->check('test@example.com');
@@ -60,14 +54,7 @@ class EmailCheckerTest extends TestCase
         $dns->method('getMxRecords')->willReturn(['mx.example.com']);
 
         $smtp = $this->createStub(SMTP::class);
-        $smtp->method('check')->willReturn([
-            'can_connect' => true,
-            'is_deliverable' => true,
-            'is_catch_all' => false,
-            'has_full_inbox' => false,
-            'is_disabled' => false,
-            'error' => '',
-        ]);
+        $smtp->method('check')->willReturn(new SMTPResult(canConnect: true, isDeliverable: true));
 
         $checker = new EmailChecker($dns, $smtp);
         $result = $checker->check('test@example.com');
@@ -83,14 +70,7 @@ class EmailCheckerTest extends TestCase
         $dns->method('getMxRecords')->willReturn(['mx.example.com']);
 
         $smtp = $this->createStub(SMTP::class);
-        $smtp->method('check')->willReturn([
-            'can_connect' => true,
-            'is_deliverable' => true,
-            'is_catch_all' => true,
-            'has_full_inbox' => false,
-            'is_disabled' => false,
-            'error' => '',
-        ]);
+        $smtp->method('check')->willReturn(new SMTPResult(canConnect: true, isDeliverable: true, isCatchAll: true));
 
         $checker = new EmailChecker($dns, $smtp);
         $result = $checker->check('test@example.com');
@@ -105,14 +85,7 @@ class EmailCheckerTest extends TestCase
         $dns->method('getMxRecords')->willReturn(['mx.example.com']);
 
         $smtp = $this->createStub(SMTP::class);
-        $smtp->method('check')->willReturn([
-            'can_connect' => true,
-            'is_deliverable' => true,
-            'is_catch_all' => false,
-            'has_full_inbox' => false,
-            'is_disabled' => false,
-            'error' => '',
-        ]);
+        $smtp->method('check')->willReturn(new SMTPResult(canConnect: true, isDeliverable: true));
         
         $misc = $this->createStub(Misc::class);
         $misc->method('isRoleAccount')->willReturn(true);
