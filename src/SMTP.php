@@ -74,7 +74,13 @@ class SMTP
         }
 
         stream_set_timeout($socket, self::TIMEOUT);
-        $this->readResponse($socket);
+        $initialConnectResponse = $this->readResponse($socket);
+        $code = (int)substr($initialConnectResponse, 0, 3);
+        if ($code >= 400) {
+            $smtpResult->addError("Connection rejected by server: $initialConnectResponse");
+
+            return null;
+        }
 
         $this->sendCommand($socket, 'EHLO ' . $this->heloHost);
         $this->readResponse($socket);
