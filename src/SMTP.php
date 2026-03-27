@@ -86,7 +86,13 @@ class SMTP
         $this->readResponse($socket);
 
         $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail . '>');
-        $this->readResponse($socket);
+        $resultInitMail = $this->readResponse($socket);
+        $code = (int)substr($resultInitMail, 0, 3);
+        if ($code >= 400) {
+            $smtpResult->addError("Connection rejected by server: $resultInitMail");
+
+            return null;
+        }
 
         return $socket;
     }
