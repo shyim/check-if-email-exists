@@ -25,8 +25,14 @@ class SMTP
     {
         $smtpResult = new SMTPResult();
 
-        $socket = $this->connect($mxHosts, $smtpResult);
-        if ($socket === null) {
+        try {
+            $socket = $this->connect($mxHosts, $smtpResult);
+            if ($socket === null) {
+                return $smtpResult;
+            }
+        } catch (SMTPException $e) {
+            $smtpResult->addError('Connection error: ' . $e->getMessage());
+
             return $smtpResult;
         }
 
@@ -44,6 +50,8 @@ class SMTP
 
                 $this->verifyEmail($smtpResult, $socket, $toEmail);
             }
+        } catch (SMTPException $e) {
+            $smtpResult->addError('SMTP exception: ' . $e->getMessage());
         } catch (\Throwable $e) {
             $smtpResult->addError('Exception: ' . $e->getMessage());
         } finally {
@@ -53,6 +61,9 @@ class SMTP
         return $smtpResult;
     }
 
+    /**
+     * @throws SMTPException
+     */
     private function connect(array $hosts, SMTPResult $smtpResult)
     {
         $socket = null;
@@ -95,13 +106,17 @@ class SMTP
         $smtpResult->error = '';
 
         $this->sendCommand($socket, 'RCPT TO: <' . $email . '>');
-        $response = $this->readResponse($socket);
 
-        $code = (int)substr($response, 0, 3);
-        if ($code >= 200 && $code < 300) {
-            $smtpResult->isDeliverable = true;
+        try {
+            $response = $this->readResponse($socket);
+            $code = (int)substr($response, 0, 3);
+            if ($code >= 200 && $code < 300) {
+                $smtpResult->isDeliverable = true;
 
-            return;
+                return;
+            }
+        } catch (SMTPException $e) {
+            $response = $e->getMessage();
         }
 
         if (stripos($response, 'full') !== false || stripos($response, 'quota') !== false) {
@@ -137,6 +152,12 @@ class SMTP
                 break;
             }
         }
+
+        $code = (int)substr($response, 0, 3);
+        if ($code >= 400) {
+            throw new SMTPException($response);
+        }
+
         return $response;
     }
 }
