@@ -25,8 +25,14 @@ class SMTP
     {
         $smtpResult = new SMTPResult();
 
-        $socket = $this->connect($mxHosts, $smtpResult);
-        if ($socket === null) {
+        try {
+            $socket = $this->connect($mxHosts, $smtpResult);
+            if ($socket === null) {
+                return $smtpResult;
+            }
+        } catch (SMTPException $e) {
+            $smtpResult->addError('Connection error: ' . $e->getMessage());
+
             return $smtpResult;
         }
 
@@ -44,6 +50,8 @@ class SMTP
 
                 $this->verifyEmail($smtpResult, $socket, $toEmail);
             }
+        } catch (SMTPException $e) {
+            $smtpResult->addError('SMTP exception: ' . $e->getMessage());
         } catch (\Throwable $e) {
             $smtpResult->addError('Exception: ' . $e->getMessage());
         } finally {
@@ -53,6 +61,9 @@ class SMTP
         return $smtpResult;
     }
 
+    /**
+     * @throws SMTPException
+     */
     private function connect(array $hosts, SMTPResult $smtpResult)
     {
         $socket = null;
@@ -74,25 +85,13 @@ class SMTP
         }
 
         stream_set_timeout($socket, self::TIMEOUT);
-        $initialConnectResponse = $this->readResponse($socket);
-        $code = (int)substr($initialConnectResponse, 0, 3);
-        if ($code >= 400) {
-            $smtpResult->addError("Connection rejected by server: $initialConnectResponse");
-
-            return null;
-        }
+        $this->readResponse($socket);
 
         $this->sendCommand($socket, 'EHLO ' . $this->heloHost);
         $this->readResponse($socket);
 
         $this->sendCommand($socket, 'MAIL FROM: <' . $this->fromEmail . '>');
-        $resultInitMail = $this->readResponse($socket);
-        $code = (int)substr($resultInitMail, 0, 3);
-        if ($code >= 400) {
-            $smtpResult->addError("Connection rejected by server: $resultInitMail");
-
-            return null;
-        }
+        $this->readResponse($socket);
 
         return $socket;
     }
@@ -107,13 +106,17 @@ class SMTP
         $smtpResult->error = '';
 
         $this->sendCommand($socket, 'RCPT TO: <' . $email . '>');
-        $response = $this->readResponse($socket);
 
-        $code = (int)substr($response, 0, 3);
-        if ($code >= 200 && $code < 300) {
-            $smtpResult->isDeliverable = true;
+        try {
+            $response = $this->readResponse($socket);
+            $code = (int)substr($response, 0, 3);
+            if ($code >= 200 && $code < 300) {
+                $smtpResult->isDeliverable = true;
 
-            return;
+                return;
+            }
+        } catch (SMTPException $e) {
+            $response = $e->getMessage();
         }
 
         if (stripos($response, 'full') !== false || stripos($response, 'quota') !== false) {
@@ -149,6 +152,12 @@ class SMTP
                 break;
             }
         }
+
+        $code = (int)substr($response, 0, 3);
+        if ($code >= 400) {
+            throw new SMTPException($response);
+        }
+
         return $response;
     }
 }
